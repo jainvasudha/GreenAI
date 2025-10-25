@@ -78,3 +78,5 @@ We welcome contributions! Please see our contributing guidelines for details.
 ## 📄 License
 
 MIT License - see LICENSE file for details.
+# GreenAI
+Green Recommendations Bot + AI Carbon Tracker monitors energy usage and carbon emissions of AI workloads, providing real-time recommendations to optimize job scheduling for environmental efficiency—making AI development greener and more sustainable.
