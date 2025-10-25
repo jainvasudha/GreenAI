@@ -1,0 +1,17 @@
+[theme]
+# Eco-conscious color palette inspired by nature
+primaryColor = "#BE5103"          # Burnt Orange - for buttons and highlights
+backgroundColor = "#F5F5DC"         # Soft Beige - main background
+secondaryBackgroundColor = "#98A869"  # Sage Green - sidebar and cards
+textColor = "#6B4F2A"             # Earth Brown - main text
+font = "sans serif"
+
+[server]
+# Enable better performance
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+# Set a custom server name for better branding
+serverName = "GreenAI Carbon Tracker"

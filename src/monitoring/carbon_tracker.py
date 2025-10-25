@@ -11,8 +11,7 @@ import pandas as pd
 import numpy as np
 
 from codecarbon import EmissionsTracker
-from codecarbon.core.units import Energy, Time, Emissions
-from codecarbon.core.config import ProjectConfig
+from codecarbon.core.units import Energy, Time
 
 from config.settings import config, metrics
 
@@ -49,6 +48,9 @@ class CarbonTracker:
         self.tracker = None
         self.metrics_history: List[CarbonMetrics] = []
         self.baseline_metrics: Optional[CarbonMetrics] = None
+        self.start_time: Optional[datetime] = None
+        self.session_id: Optional[str] = None
+        self.is_tracking: bool = False
         
         # Initialize CodeCarbon tracker
         self._setup_tracker()
@@ -56,12 +58,6 @@ class CarbonTracker:
     def _setup_tracker(self):
         """Setup CodeCarbon tracker with configuration"""
         try:
-            project_config = ProjectConfig(
-                project_name=self.project_name,
-                tracking_mode=self.tracking_mode,
-                log_level="INFO"
-            )
-            
             self.tracker = EmissionsTracker(
                 project_name=self.project_name,
                 tracking_mode=self.tracking_mode,
@@ -92,6 +88,9 @@ class CarbonTracker:
         
         try:
             self.tracker.start()
+            self.start_time = datetime.now()
+            self.session_id = session_id
+            self.is_tracking = True
             logger.info(f"Started carbon tracking for session: {session_id}")
             return session_id
             
@@ -99,16 +98,20 @@ class CarbonTracker:
             logger.error(f"Failed to start carbon tracking: {e}")
             raise
     
-    def stop_tracking(self, session_id: str) -> CarbonMetrics:
+    def stop_tracking(self, session_id: str = None) -> CarbonMetrics:
         """
         Stop tracking and return carbon metrics
         
         Args:
-            session_id: Session ID to stop tracking
+            session_id: Session ID to stop tracking (optional)
             
         Returns:
             CarbonMetrics object with emission data
         """
+        if not self.is_tracking:
+            logger.warning("No active tracking to stop")
+            return None
+            
         try:
             # Stop CodeCarbon tracker
             emissions_data = self.tracker.stop()
@@ -117,14 +120,29 @@ class CarbonTracker:
             system_metrics = self._get_system_metrics()
             
             # Create CarbonMetrics object
+            # Handle the case where emissions_data might be a float or dict
+            if hasattr(emissions_data, 'emissions'):
+                emissions = emissions_data.emissions
+                carbon_intensity = getattr(emissions_data, 'carbon_intensity', 0.0)
+                renewable_percentage = getattr(emissions_data, 'renewable_percentage', 0.0)
+            else:
+                # If emissions_data is just a number
+                emissions = float(emissions_data) if emissions_data else 0.0
+                carbon_intensity = 0.0
+                renewable_percentage = 0.0
+            
+            # Use current session_id if not provided
+            if session_id is None:
+                session_id = self.session_id or "unknown"
+            
             carbon_metrics = CarbonMetrics(
                 timestamp=datetime.now(),
-                energy_consumed=emissions_data.emissions,
-                carbon_emissions=emissions_data.emissions,
-                carbon_intensity=emissions_data.carbon_intensity,
-                renewable_percentage=emissions_data.renewable_percentage,
-                workload_type=session_id.split('_')[0],
-                framework=session_id.split('_')[1],
+                energy_consumed=emissions,
+                carbon_emissions=emissions,
+                carbon_intensity=carbon_intensity,
+                renewable_percentage=renewable_percentage,
+                workload_type=session_id.split('_')[0] if '_' in session_id else "unknown",
+                framework=session_id.split('_')[1] if '_' in session_id else "unknown",
                 gpu_utilization=system_metrics['gpu_utilization'],
                 cpu_utilization=system_metrics['cpu_utilization'],
                 memory_usage=system_metrics['memory_usage']
@@ -132,6 +150,11 @@ class CarbonTracker:
             
             # Store metrics
             self.metrics_history.append(carbon_metrics)
+            
+            # Reset tracking state
+            self.is_tracking = False
+            self.start_time = None
+            self.session_id = None
             
             logger.info(f"Stopped carbon tracking for session: {session_id}")
             logger.info(f"Total emissions: {carbon_metrics.carbon_emissions:.4f} kg CO2")
@@ -177,6 +200,22 @@ class CarbonTracker:
             return 0.0
         except:
             return 0.0
+    
+    def get_runtime_seconds(self) -> float:
+        """Get the current runtime in seconds"""
+        if self.start_time and self.is_tracking:
+            return (datetime.now() - self.start_time).total_seconds()
+        return 0.0
+    
+    def get_current_status(self) -> Dict:
+        """Get current tracking status"""
+        return {
+            'is_tracking': self.is_tracking,
+            'start_time': self.start_time,
+            'session_id': self.session_id,
+            'runtime_seconds': self.get_runtime_seconds(),
+            'project_name': self.project_name
+        }
     
     def get_carbon_summary(self, hours: int = 24) -> Dict:
         """
