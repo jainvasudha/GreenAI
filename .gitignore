@@ -205,3 +205,24 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Project-specific ignores
+# Virtual environments
+greenai/
+
+# Log files
+*.log
+powermetrics_log.txt
+
+# Data files
+*.csv
+emissions.csv
+
+# Generated files
+*.html
+*.pdf
+GreenAI_Complete_Guide.*
+
+# Environment files (already covered but being explicit)
+.env.local
+.env.production
